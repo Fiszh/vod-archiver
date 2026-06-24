@@ -1,4 +1,10 @@
 import { $ } from "bun";
+import { homedir } from "os";
+import fs from "fs";
+import path from "path";
+
+const mainPath = path.join(homedir(), "vod-archiver");
+const recordingsPath = path.join(mainPath, "recordings");
 
 type Events = {
   open: () => void;
@@ -15,6 +21,15 @@ export class Streamlink {
   constructor() {
     this.command = "streamlink";
     this.listeners = {};
+
+    fs.promises
+      .mkdir(recordingsPath, { recursive: true })
+      .then(() => {
+        console.log("Directories are ready!");
+      })
+      .catch((err) => {
+        console.error("Failed to create directories:", err);
+      });
 
     $`streamlink --version`
       .then(({ stdout }) => console.log(stdout.toString()))
@@ -37,14 +52,14 @@ export class Streamlink {
       for (const cb of this.listeners[event]) cb(...args);
   };
 
-  record = (name: string, clip_name?: string) =>
-    $`streamlink https://www.twitch.tv/${name} best -o ${clip_name ?? String(Date.now()) + "_" + name}.ts`
+  record = (name: string, clip_name?: string) => {
+    const filename = clip_name ?? `${Date.now()}_${name}.mkv`;
+    const fullOutputPath = path.join(recordingsPath, filename);
+
+    $`streamlink https://www.twitch.tv/${name} best -o ${fullOutputPath}`
       .then(({ stdout }) => console.log(stdout.toString()))
       .catch((err) =>
-        console.error(
-          "Streamlink not found:",
-          err.exitCode,
-          err.stderr.toString(),
-        ),
+        console.error("Streamlink error:", err.exitCode, err.stderr.toString()),
       );
+  };
 }
