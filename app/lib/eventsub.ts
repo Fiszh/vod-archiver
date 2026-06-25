@@ -34,6 +34,24 @@ export class EventSub {
     this.info = {};
   }
 
+  private teardownAndReconnect() {
+    if (this.ws) {
+      this.ws.onopen =
+        this.ws.onmessage =
+        this.ws.onerror =
+        this.ws.onclose =
+          null;
+      if (
+        this.ws.readyState === WebSocket.OPEN ||
+        this.ws.readyState === WebSocket.CONNECTING
+      ) {
+        this.ws.close();
+      }
+      this.ws = null;
+    }
+    this.connect();
+  }
+
   on<K extends keyof Events>(event: K, cb: Events[K]) {
     if (!this.listeners[event]) this.listeners[event] = [];
     this.listeners[event]!.push(cb);
@@ -45,13 +63,17 @@ export class EventSub {
   };
 
   connect(oldSocket?: WebSocket) {
-    if (this.ws) return;
-    this.ws = new WebSocket(this.url);
+    if (this.ws && !oldSocket) return;
+    console.log(this.reconnect_url ?? this.url);
+    this.ws = new WebSocket(this.reconnect_url ?? this.url);
 
     this.ws.addEventListener("open", () => this.emit("opening"));
 
     this.ws.addEventListener("message", async (data: Record<string, any>) => {
       data = JSON.parse(data["data"].toString());
+
+      this.info.last_message = (data?.metadata?.message_timestamp ??
+        String(Date.now())) as string;
 
       if (data?.metadata?.message_type) {
         switch (data.metadata.message_type) {
@@ -65,21 +87,18 @@ export class EventSub {
               clearInterval(this.keepalive_interval);
               this.keepalive_interval = setInterval(() => {
                 if (
-                  this.info.last_message &&
                   this.ws &&
+                  this.info.last_message &&
                   this.info.keepalive_timeout &&
                   Date.now() - new Date(this.info.last_message).getTime() >
                     this.info.keepalive_timeout
                 ) {
+                  clearInterval(this.keepalive_interval);
                   console.log(
-                    `Last message exceeded ${this.info.keepalive_timeout / 1000} seconds, attempting reconnect.`,
+                    `[ES] Last message exceeded ${this.info.keepalive_timeout / 1000} seconds, attempting reconnect.`,
                   );
 
-                  if (this.ws.readyState === WebSocket.OPEN) {
-                    this.ws.close();
-                  } else {
-                    this.connect();
-                  }
+                  this.teardownAndReconnect();
                 }
               }, this.info.keepalive_timeout);
 
@@ -123,12 +142,10 @@ export class EventSub {
             this.reconnect_url =
               (data.payload.session.reconnect_url as string) ?? null;
 
-            break;
-          case "session_keepalive":
-          default:
-            this.info.last_message = (data?.metadata?.message_timestamp ??
-              String(Date.now())) as string;
+            if (this.ws) this.connect(this.ws);
 
+            break;
+          default:
             break;
         }
       }

@@ -1,6 +1,6 @@
 import { env } from "bun";
 import { Streamlink } from "./lib/streamlink";
-import { validateToken } from "./lib/twitch";
+import { getStreamData, validateToken } from "./lib/twitch";
 import { EventSub } from "./lib/eventsub";
 
 validateToken(env["TOKEN"] as string).then((data) => {
@@ -15,12 +15,24 @@ validateToken(env["TOKEN"] as string).then((data) => {
 
   const streamlinkClient = new Streamlink();
 
+  function record(name: string) {
+    console.log(name, "went online, starting recording");
+    streamlinkClient.record(name);
+  }
+
+  getStreamData("sennyk4").then((result) => {
+    if (result)
+      for (const stream_data of result) {
+        record(stream_data["user_login"]);
+      }
+  });
+
   const EventSubClient = new EventSub();
 
   EventSubClient.on("open", (isNew) => {
     if (isNew) {
       console.log("sub logic");
-      EventSubClient.subscribe("528761326", "stream.online");
+      EventSubClient.subscribe("146110596", "stream.online");
     } else {
       console.log("already was open");
     }
@@ -28,10 +40,7 @@ validateToken(env["TOKEN"] as string).then((data) => {
 
   EventSubClient.on("event", (type, payload) => {
     // console.log(type, payload);
-    if (type == "stream.online") {
-      console.log(payload.event.broadcaster_user_login + "online");
-      streamlinkClient.record(payload.event.broadcaster_user_login);
-    }
+    if (type == "stream.online") record(payload.event.broadcaster_user_login);
   });
 
   EventSubClient.connect();

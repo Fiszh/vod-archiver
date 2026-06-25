@@ -53,13 +53,24 @@ export class Streamlink {
   };
 
   record = (name: string, clip_name?: string) => {
-    const filename = clip_name ?? `${Date.now()}_${name}.mkv`;
+    const filename = clip_name ?? `${Date.now()}_${name}.ts`;
     const fullOutputPath = path.join(recordingsPath, filename);
 
-    $`streamlink https://www.twitch.tv/${name} best -o ${fullOutputPath}`
+    $`streamlink "https://www.twitch.tv/${name}" best \
+      --twitch-supported-codecs=av1,h265,h264 \
+      --hls-live-restart \
+      --stream-segment-threads 4 \
+      --stream-segment-attempts 5 \
+      --stream-timeout 30 \
+      --retry-streams 15 \
+      -o ${fullOutputPath}`
       .then(({ stdout }) => console.log(stdout.toString()))
       .catch((err) =>
-        console.error("Streamlink error:", err.exitCode, err.stderr.toString()),
+        console.error(
+          "Streamlink error:",
+          err.exitCode,
+          err.stderr?.toString() || err.message,
+        ),
       );
   };
 }
