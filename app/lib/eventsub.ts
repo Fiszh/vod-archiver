@@ -178,7 +178,7 @@ export class EventSub {
 
       if (!res.ok) console.error("[ES] Failed subscribing!", res);
       if (res.ok) {
-        console.log("[ES] Subscribed!");
+        console.log("[ES] Subscribed!", channel_id, type);
 
         this.subscriptions.set(String(channel_id) + type, {
           id: channel_id,
