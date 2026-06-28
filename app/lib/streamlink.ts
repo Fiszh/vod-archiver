@@ -52,25 +52,36 @@ export class Streamlink {
       for (const cb of this.listeners[event]) cb(...args);
   };
 
-  record = (name: string, clip_name?: string) => {
-    const filename = clip_name ?? `${Date.now()}_${name}.ts`;
-    const fullOutputPath = path.join(recordingsPath, filename);
+  record = async (name: string) => {
+    try {
+      const jsonRaw =
+        await $`streamlink "https://www.twitch.tv/${name}" --json`.text();
+      const metadata = JSON.parse(jsonRaw);
 
-    $`streamlink "https://www.twitch.tv/${name}" best \
+      const title = metadata["metadata"]?.["title"] ?? "Untitled Stream";
+      const safeTitle = `${title}.ts`.replace(/[/\\?%*:|"<>]/g, "-");
+      const fullOutputPath = path.join(recordingsPath, safeTitle);
+
+      const { stdout } =
+        await $`streamlink "https://www.twitch.tv/${name}" best \
       --twitch-supported-codecs=av1,h265,h264 \
       --hls-live-restart \
       --stream-segment-threads 4 \
       --stream-segment-attempts 5 \
       --stream-timeout 30 \
       --retry-streams 15 \
-      -o ${fullOutputPath}`
-      .then(({ stdout }) => console.log(stdout.toString()))
-      .catch((err) =>
-        console.error(
-          "Streamlink error:",
-          err.exitCode,
-          err.stderr?.toString() || err.message,
-        ),
+      -O >> ${fullOutputPath}`;
+
+      console.log(stdout.toString());
+      return null;
+    } catch (err: any) {
+      console.error(
+        "Streamlink error:",
+        err.exitCode,
+        err.stderr?.toString() || err.message,
       );
+
+      return err;
+    }
   };
 }
