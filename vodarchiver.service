@@ -1,0 +1,16 @@
+# /etc/systemd/system/vodarchiver.service
+[Unit]
+Description=Vod Archiver
+After=network.target
+
+[Service]
+Environment=PATH=<bun path>:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Type=simple
+WorkingDirectory=<app path>
+ExecStart=<path to bun> run index.ts
+Restart=always
+RestartSec=5
+User=root
+
+[Install]
+WantedBy=multi-user.target
