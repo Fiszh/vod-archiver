@@ -4,7 +4,7 @@ Description=Vod Archiver
 After=network.target
 
 [Service]
-Environment=PATH=<bun path>:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=PATH=<path to bun bin>:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 Type=simple
 WorkingDirectory=<app path>
 ExecStart=<path to bun> run index.ts
